@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>台本ジェネレーター</title>
+<style>
+  :root{
+    --bg:#0e0e11; --panel:#17181d; --panel-2:#1f2128; --line:#2c2e36;
+    --text:#ece7db; --muted:#9a9384; --accent:#c9a24b; --accent-2:#e3c477; --radius:16px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#1a1815 0%,var(--bg) 55%);color:var(--text);line-height:1.7;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:720px;margin:0 auto;padding:28px 18px 80px;}
+  header h1{font-size:1.5rem;margin:0 0 4px;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  header p{color:var(--muted);margin:0 0 22px;font-size:.9rem;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:0 2px 10px rgba(0,0,0,.35);}
+  .label{display:block;font-weight:700;font-size:.9rem;margin:14px 0 8px;}
+  .label:first-child{margin-top:0;}
+  .hint{color:var(--muted);font-weight:400;font-size:.78rem;}
+  input[type=text],textarea,select{width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:12px 14px;font-size:.95rem;font-family:inherit;}
+  textarea{min-height:80px;resize:vertical;}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent-2);}
+  .seg{display:flex;gap:8px;flex-wrap:wrap;}
+  .seg button{flex:1 1 45%;background:var(--panel-2);border:1.5px solid var(--line);color:var(--text);border-radius:12px;padding:13px;font-weight:700;font-size:.98rem;cursor:pointer;transition:.15s;}
+  .seg button:hover{border-color:var(--accent-2);}
+  .seg button.active{border-color:var(--accent);background:linear-gradient(180deg,rgba(201,162,75,.18),transparent);}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{flex:1;min-width:64px;text-align:center;background:var(--panel-2);border:1.5px solid var(--line);color:var(--text);border-radius:10px;padding:10px 4px;cursor:pointer;font-weight:600;font-size:.9rem;transition:.15s;}
+  .chip:hover{border-color:var(--accent-2);}
+  .chip.active{border-color:var(--accent);background:linear-gradient(180deg,rgba(201,162,75,.18),transparent);}
+  .btn{width:100%;border:none;border-radius:12px;padding:16px;font-size:1.05rem;font-weight:700;cursor:pointer;color:#1b1810;background:linear-gradient(135deg,#e3c477,#c08f2e);box-shadow:0 2px 12px rgba(201,162,75,.25);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn.sub{background:var(--panel-2);color:var(--text);border:1px solid var(--line);font-weight:600;}
+  #output{white-space:pre-wrap;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:80px;font-size:.95rem;}
+  .out-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .copy{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:.8rem;cursor:pointer;}
+  .copy:hover{color:var(--text);border-color:var(--accent-2);}
+  .muted{color:var(--muted);font-size:.84rem;}
+  details summary{cursor:pointer;color:var(--muted);font-size:.9rem;font-weight:600;}
+  details[open] summary{margin-bottom:10px;}
+  a{color:var(--accent-2);}
+  .err{color:var(--accent);font-size:.85rem;margin-top:10px;}
+  .pill{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);}
+  .hist{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+  .hist:last-child{margin-bottom:0;}
+  .hist .ht{display:flex;justify-content:space-between;gap:8px;align-items:center;}
+  .hist .hmeta{font-size:.82rem;font-weight:600;}
+  .hist .hsub{color:var(--muted);font-size:.74rem;margin-top:2px;}
+  .hist .hacts{display:flex;gap:6px;flex:0 0 auto;}
+  .hist .hbtn{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:5px 10px;font-size:.76rem;cursor:pointer;white-space:nowrap;}
+  .hist .hbtn:hover{color:var(--text);border-color:var(--accent-2);}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.25);border-top-color:#1b1810;border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes s{to{transform:rotate(360deg);}}
+  .setup{background:linear-gradient(180deg,rgba(201,162,75,.14),transparent);border:1px solid var(--accent);}
+  .tall{min-height:150px;}
+  #history,#recList{max-height:360px;overflow-y:auto;padding-right:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🎬 台本ジェネレーター</h1>
+    <p>講座メソッド内蔵。テーマを入れてボタンを押すだけで、台本・タイトル・サムネ文字をAIが作ります。</p>
+  </header>
+
+  <div class="card setup" id="setupBanner" style="display:none">
+    <span class="label" style="margin:0">🔑 最初に1回だけ：AIキーを登録してください</span>
+    <p class="muted" style="margin:8px 0 12px">このアプリはAI（Claude）が文章を作ります。下の<b>⚙️設定</b>でキーを登録すると、以降ずっとボタン1つで使えます。やり方は「❓ キーの取り方」を見てください。</p>
+    <a class="btn sub" href="https://console.anthropic.com/" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none">キーを発行するページを開く</a>
+  </div>
+
+  <div class="card" style="border:1px solid var(--accent)">
+    <details open>
+      <summary>🌱 はじめての方へ・かんたんガイド（迷ったらココ）</summary>
+      <div class="muted" style="margin-top:12px;line-height:1.9">
+        <p style="margin:0 0 8px"><b>● 基本の使い方（ぜんぶ共通・これだけ）</b><br>
+        ① 上の「作るもの」を選ぶ → ② テーマなどを少し入れる → ③ 金色の「✨ 作る」ボタンを押す。<br>
+        出てきた文章が気に入ったら「保存」。気に入らなければ、もう一度「作る」でOK。</p>
+
+        <p style="margin:12px 0 4px"><b>● まずはこの2つだけでOK</b><br>
+        1. <b>📅 週間ストーリーズ</b> … 週に1回、1週間分まとめて作る → 毎日それを上げる<br>
+        2. <b>📱 リール台本</b> … いいネタを見つけたら、参考を貼って1本作る</p>
+
+        <p style="margin:12px 0 4px"><b>● 慣れたら、少しずつ足す</b><br>
+        ・感想が来たら → 🗣️ お客様の声を清書<br>
+        ・LINE登録されたら → 💬 LINE台本であいさつ<br>
+        ・ネタに迷ったら → 🔎 ネタ出しで10個</p>
+
+        <p style="margin:12px 0 4px"><b>● 「伸びてる人を分析して、自分用に書き直す」やり方</b><br>
+        作るものを選んだら「参考にした伸びてる動画」の欄に、文字起こしを貼る → 作る。<br>
+        → なぜ伸びてるかを分析して、あなた向けに書き直してくれます。</p>
+
+        <p style="margin:12px 0 0"><b>● 困ったとき</b><br>
+        ・お金は「作る」を押した時だけ（数円）。$5以上はかかりません。<br>
+        ・動かなくなったら、下の「🛟 動かなくなったら」を見る。<br>
+        ・全部使わなくてOK。1つずつで大丈夫です 🙂</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <span class="label">① 作るもの</span>
+    <div class="seg" id="kind">
+      <button data-kind="youtube" class="active">▶️ YouTube台本</button>
+      <button data-kind="idea">🔎 ネタ出し</button>
+      <button data-kind="title">🏷️ タイトル案</button>
+      <button data-kind="thumb">🖼️ サムネ文字</button>
+      <button data-kind="edit">✂️ 編集メモ</button>
+      <button data-kind="reel">📱 リール台本</button>
+      <button data-kind="threads">🧵 スレッズ</button>
+      <button data-kind="story">📸 ストーリーズ</button>
+      <button data-kind="week">📅 週間ストーリーズ</button>
+      <button data-kind="line">💬 LINE台本</button>
+      <button data-kind="voice">🗣️ お客様の声</button>
+    </div>
+
+    <div id="f-theme">
+      <span class="label" id="themeLabel">② テーマ・ジャンル</span>
+      <input type="text" id="theme" placeholder="例：副業で月5万 / 失敗しないダイエット / 〇〇の使い方 …" />
+    </div>
+
+    <div id="f-kata" style="display:none">
+      <span class="label">型（講座の型を選べます）<span class="hint">迷ったら「おまかせ」でOK</span></span>
+      <div class="chips" id="katas"></div>
+    </div>
+
+    <div id="f-youbi" style="display:none">
+      <span class="label">今日のテーマ（メンターの曜日別）<span class="hint">迷ったら「おまかせ」</span></span>
+      <div class="chips" id="youbis"></div>
+    </div>
+
+    <div id="f-story" style="display:none">
+      <span class="label">ターゲットの悩み <span class="hint">任意</span></span>
+      <input type="text" id="stWorry" placeholder="例：努力しても成果につながらず壁を感じている" />
+      <span class="label">いちばん伝えたい目的 <span class="hint">任意</span></span>
+      <input type="text" id="stGoal" placeholder="例：自己投資の大切さを伝えて個別相談につなげたい" />
+    </div>
+
+    <div id="f-linetype" style="display:none">
+      <span class="label">作るもの（LINEの種類）</span>
+      <div class="chips" id="linetypes"></div>
+    </div>
+
+    <div id="f-yt" style="display:none">
+      <span class="label">誰に向けて？ <span class="hint">任意・わかる範囲でOK</span></span>
+      <input type="text" id="ytTarget" placeholder="例：講座販売につなげたい30代女性" />
+      <span class="label">その人の悩み <span class="hint">任意</span></span>
+      <input type="text" id="ytWorry" placeholder="例：何を話せば見込み客に刺さるのかわからない" />
+      <span class="label">入れたい自分のエピソード <span class="hint">任意・あると一気に良くなる</span></span>
+      <textarea id="ytEpisode" placeholder="例：最初は完璧なテーマを探しすぎて、1本目の投稿が遅れた"></textarea>
+    </div>
+
+    <div id="f-rec" style="display:none">
+      <span class="label" id="recLabel">② 動画の内容・話したこと</span>
+      <textarea id="recContent" placeholder="撮った動画の内容、強く話したこと、一番伝えたい結論などを貼り付け。文字起こしがあれば貼ると精度UP。"></textarea>
+      <span class="label">印象的な一言・強いウリ <span class="hint">任意</span></span>
+      <input type="text" id="recPhrase" placeholder="例：自分の頭だけで考えるから失敗する" />
+    </div>
+
+    <div id="f-ref" style="display:none">
+      <span class="label">参考にした伸びてる動画 <span class="hint">任意。タイトルや文字起こしを貼ると、その切り口をあなたのターゲット向けに変換します</span></span>
+      <textarea id="refVideo" placeholder="例：タイトル「初心者がやってはいけないこと5選」／登録1万なのに30万再生／内容は〜（文字起こし全文を貼ってもOK）"></textarea>
+    </div>
+
+    <div id="f-plat" style="display:none">
+      <span class="label">どの媒体のネタ？</span>
+      <div class="chips" id="plats"></div>
+    </div>
+
+    <div id="f-len">
+      <span class="label" id="lenLabel">③ 長さ</span>
+      <div class="chips" id="lengths"></div>
+    </div>
+
+    <span class="label">追加の指示 <span class="hint">任意（例：優しい口調で／数字を入れて）</span></span>
+    <input type="text" id="extra" placeholder="無ければ空のままでOK" />
+
+    <button class="btn" id="gen" style="margin-top:18px">✨ 台本を作る</button>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card">
+    <div class="out-head">
+      <span class="label" style="margin:0">📝 できあがり</span>
+      <div style="display:flex;gap:8px">
+        <button class="copy" id="save">保存</button>
+        <button class="copy" id="copy">コピー</button>
+      </div>
+    </div>
+    <div id="output" class="muted">ここに結果が表示されます。</div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>📚 ナレッジ・メソッド設定（あとから自由に書き換えOK）</summary>
+      <div style="margin-top:12px">
+        <p class="muted" style="margin:0 0 12px">ここの内容を変えると、作られる文章が変わります。発信ジャンルやペルソナが変わったら、ここを書き換えて「保存」するだけ。<b>初期値に講座メソッドを入れてあります。</b></p>
+
+        <span class="label">あなたの発信・ペルソナ <span class="hint">全種類で使われます</span></span>
+        <textarea id="persona" placeholder="例：副業とYouTube運用を発信。ターゲットは『発信を始めたい30代会社員』。口調はやさしく、専門用語を使わない。"></textarea>
+
+        <span class="label">型・メソッド <span class="hint">いま選んでいる「<span id="knowKind">リール台本</span>」用</span></span>
+        <textarea id="method" class="tall"></textarea>
+        <button class="btn sub" id="resetMethod" style="margin-top:8px">この型を初期値（講座メソッド）に戻す</button>
+
+        <span class="label">お手本 <span class="hint">任意・効果大。うまくいった台本やタイトルを貼る</span></span>
+        <textarea id="examples" placeholder="ここにお手本（伸びた台本・タイトルなど）を貼ると、AIがその雰囲気・口調を真似ます。"></textarea>
+
+        <button class="btn" id="saveKnow" style="margin-top:14px">ナレッジを保存</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="out-head">
+      <span class="label" id="histLabel" style="margin:0">📚 保存した結果</span>
+      <button class="copy" id="clearHist">すべて削除</button>
+    </div>
+    <input type="text" id="histSearch" placeholder="🔍 検索（テーマや種類で絞り込み）" style="margin-bottom:10px" />
+    <div id="history" class="muted">まだ保存はありません。</div>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>🎥 撮影・編集チェックリスト（講座メソッド・AI不要）</summary>
+      <div class="muted" style="margin-top:12px;line-height:1.85">
+        <p style="margin:0 0 6px"><b>● 撮影前チェック（表に見える部分は妥協しない）</b></p>
+        □ 髪型は整っているか<br>
+        □ 服装はチャンネルの世界観に合っているか／清潔感はあるか<br>
+        □ メイク・肌の見え方は問題ないか<br>
+        □ 背景が散らかっていないか／不要なものが映っていないか<br>
+        □ 顔・表情が暗くなっていないか（照明）<br>
+        □ 音声は聞き取りやすいか<br>
+        □ カメラの高さは目線に合っているか<br>
+        □ 視聴者に与えたい印象とズレていないか
+        <p style="margin:14px 0 6px"><b>● 編集の基本（見やすく・自然に）</b></p>
+        ・カット：口癖（えー／あのー／なんか／文頭の「はい」）を削る。ただし切りすぎ注意、自然さ優先<br>
+        ・ズーム：結論・キーワード・感情が動く瞬間・場面転換で110%程度<br>
+        ・Bロール：話の内容に合った映像だけ（無関係な素材は安っぽく見える）<br>
+        ・最後に必ず通しで見直す<br>
+        ・実作業は無料アプリ「CapCut」などでOK
+        <p style="margin:14px 0 0">※ 詳しい編集メモは上の「✂️ 編集メモ」でAIに作ってもらえます。</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>📊 再生数を記録してAIに分析してもらう（自己申告）</summary>
+      <div style="margin-top:12px">
+        <p class="muted" style="margin:0 0 10px">投稿した動画の再生数を自分で入力して貯めると、AIが「何が伸びているか・次に何を作るべきか」を分析します。</p>
+        <span class="label">テーマ・タイトル</span>
+        <input type="text" id="recTheme" placeholder="例：副業で月5万の作り方" />
+        <div style="display:flex;gap:10px">
+          <div style="flex:1">
+            <span class="label">種類</span>
+            <select id="recKind"><option value="reel">リール</option><option value="youtube">YouTube</option></select>
+          </div>
+          <div style="flex:1">
+            <span class="label">再生数</span>
+            <input type="text" id="recViews" inputmode="numeric" placeholder="例：12000" />
+          </div>
+        </div>
+        <span class="label">使った型・メモ <span class="hint">任意</span></span>
+        <input type="text" id="recNote" placeholder="例：常識破壊／冒頭で数字を出した" />
+        <button class="btn sub" id="recAdd" style="margin-top:12px">記録する</button>
+        <div id="recList" class="muted" style="margin-top:14px">まだ記録がありません。</div>
+        <button class="btn" id="recAnalyze" style="margin-top:14px">📈 AIでまとめて分析する</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>🛟 動かなくなったら（自分で直す方法）</summary>
+      <div class="muted" style="margin-top:12px;line-height:1.9">
+        <p style="margin:0 0 6px"><b>このアプリは「フォーム」で、文章はよそのAIに作ってもらっています。だからAI側が変わると、たまに直しが必要です。下のとおりにすれば、コードを触らず、あなただけで直せます。</b></p>
+
+        <p style="margin:12px 0 4px"><b>● 「キーが正しくない／401」と出る</b><br>
+        キーが切れたか、消えたかもしれません。→「⚙️ 設定」を開き、控えておいたキーを貼り直して「保存」。</p>
+
+        <p style="margin:12px 0 4px"><b>● 「残高（クレジット）が不足」と出る</b><br>
+        お金の補充が必要です。→ <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> を開き、支払い・残高を確認してください。</p>
+
+        <p style="margin:12px 0 4px"><b>● 「モデルが見つからない／not found／model」と出る（いちばん大事）</b><br>
+        AIの“頭脳の名前”が新しくなったサインです。直し方は2ステップ:<br>
+        1. <a href="https://docs.anthropic.com/en/docs/about-claude/models" target="_blank" rel="noopener">Anthropic のモデル一覧ページ</a> を開き、いま使える名前（claude- で始まる文字）を1つ確認。<br>
+        2.「⚙️ 設定」→「品質（モデル）」で <b>その他（新しいモデル名を入れる）</b> を選び、確認した名前を入れて「保存」。</p>
+
+        <p style="margin:12px 0 4px"><b>● 何も反応しない／真っ白になった</b><br>
+        ページを再読み込み（更新）してください。それでもダメなら、別のブラウザ（Chrome など）で開いてみてください。</p>
+
+        <p style="margin:12px 0 0"><b>● 設定や履歴が消えた</b><br>
+        下の「💾 バックアップ」で前に保存したファイルがあれば、「復元」から読み込めば元通りです。</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>💾 バックアップ（設定・型・履歴をファイルに保存）</summary>
+      <div style="margin-top:12px">
+        <p class="muted" style="margin:0 0 12px">キー・ペルソナ・型・お手本・履歴・再生数の記録を、まるごと1つのファイルに保存できます。パソコンの買い替えやデータ消去に備えて、ときどき保存しておくと安心です。</p>
+        <button class="btn sub" id="backupSave">📥 ファイルに保存する（バックアップ）</button>
+        <button class="btn sub" id="backupLoad" style="margin-top:10px">📤 ファイルから復元する</button>
+        <input type="file" id="backupFile" accept="application/json,.json" style="display:none" />
+        <div class="muted" id="backupMsg" style="margin-top:10px"></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details id="setupDetails">
+      <summary>⚙️ 設定（AIキー）</summary>
+      <div style="margin-top:12px">
+        <span class="label">AIキー <span class="hint">あなたのパソコン内だけに保存。外部送信しません</span></span>
+        <input type="text" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
+        <p class="hint" style="margin:8px 0 0">⚠️ このキーは必ずどこか（メモ帳・スマホのメモなど）にも控えておいてください。パソコンを変えたり、ブラウザのデータを消すと、ここから消えます。そのときは、控えたキーを貼り直すだけで元通りです。</p>
+        <span class="label">品質（モデル）</span>
+        <select id="model">
+          <option value="claude-opus-4-8">最高品質（推奨）</option>
+          <option value="claude-sonnet-4-6">標準・速い・安い</option>
+          <option value="claude-haiku-4-5">最速・最安</option>
+          <option value="custom">その他（新しいモデル名を入れる）</option>
+        </select>
+        <div id="modelCustomRow" style="display:none;margin-top:8px">
+          <input type="text" id="modelCustom" placeholder="例：claude-opus-5-0" autocomplete="off" />
+          <p class="hint" style="margin:6px 0 0">上の品質メニューが将来「使えません」になったら、ここに新しいモデル名を入れて保存してください。名前の調べ方は「🛟 動かなくなったら」を見てください。</p>
+        </div>
+        <button class="btn sub" id="saveKey" style="margin-top:12px">保存</button>
+
+        <details style="margin-top:14px">
+          <summary>さらに上級の設定（ふだんはさわらなくてOK）</summary>
+          <div style="margin-top:10px">
+            <span class="label">APIバージョン <span class="hint">ふつうは変えないでください</span></span>
+            <input type="text" id="apiVersion" placeholder="2023-06-01" autocomplete="off" />
+            <button class="btn sub" id="saveAdv" style="margin-top:10px">この上級設定を保存</button>
+          </div>
+        </details>
+      </div>
+    </details>
+  </div>
+
+  <div class="card">
+    <details>
+      <summary>❓ キーの取り方・使い方</summary>
+      <div class="muted" style="margin-top:12px;line-height:1.85">
+        <p><b>● 使い方（講座の流れ）</b><br>
+        1. <b>YouTube台本</b>でテーマを入れて台本を作る → 2. 収録 → 3. <b>タイトル案</b>で撮った内容を貼ってタイトルを出す → 4. <b>サムネ文字</b>でサムネのコピーを作る。<br>
+        リール単体や、再生数の分析にも使えます。</p>
+        <p><b>● ずっと使えます／自分で育てられます</b><br>
+        このアプリは index.html というファイル1つ。ネットがあれば永久に使えます。<b>型・ペルソナ・お手本は「📚ナレッジ・メソッド設定」でいつでも書き換え可能。</b>発信が変わってもアプリを作り直す必要はありません。USBやクラウドにコピーしておくと安心です。</p>
+        <p><b>● AIキーの取り方（1回だけ・約5分）</b><br>
+        1. <a href="https://console.anthropic.com/" target="_blank" rel="noopener">console.anthropic.com</a> を開く<br>
+        2. アカウント登録（メール）→ 支払い方法（カード）を登録<br>
+        3. 「API Keys」→「Create Key」を押す<br>
+        4. 出てきた <b>sk-ant-…</b> をコピー → 上の<b>⚙️設定</b>に貼り付けて「保存」</p>
+        <p><b>● 大事な心がけ（講座より）</b><br>
+        AIの出力は「叩き台」です。最後は自分の言葉・実体験に直す／1本1テーマに絞る／具体例を必ず入れる。</p>
+        <p><b>● 料金</b>：1回あたり数円ほど（使った分だけ）。時間の期限はありません。</p>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ===== 初期メソッド（講座の型。ここは「ナレッジ設定」で上書き・編集できます） =====
+const DEFAULT_METHOD = {
+  reel:
+`①常識破壊(PREP)：結論(あえて逆説・常識破壊)→理由→具体例(体験談)→もう一度結論で締める
+②危機感の増幅：強烈な課題認識→悩みに共感→このままだと最悪な未来→解決策(斬新なほど良い)
+③ナンバリング：「◯◯する方法は◯個あります」→価値づけ(特に最後が超重要)→1つ目,2つ目,3つ目
+④対比構造：相反する2つの考え・やり方を対立させ、自分の主張につなげる
+⑤CV型(30〜40秒)：欲しいベネフィットのフック→実は◯◯が大事(意外性)→どん底から理想へ→特典(動画/PDF)をプロフのLINEに誘導
+※冒頭3秒で手を止めるフック(問いかけ・常識破壊・数字・ベネフィット)を必ず入れる。テーマに最適な型を1つ選ぶ。`,
+  youtube:
+`■ まず最初に：クリックされるタイトル案を3〜5個（①誰向け ②悩み ③得られる未来 ④具体性(数字) ⑤誇張しない）
+
+■ 台本は7ステップ（この順番を必ず守る）
+1. 冒頭フック … 視聴者の悩みを言語化（例「〜で悩んでいませんか？」）
+2. 得られること … この動画を見るメリットを伝える
+3. 結論 … 本編の前に、先に答えを言う
+4. 本編 … 3〜5個のポイントに分けて解説する
+5. 具体例 … 各ポイントに必ず具体例・たとえ話を入れる（抽象論で終わらせない）
+6. まとめ … 今日の内容を整理する
+7. CTA … 次に取ってほしい行動を案内（無料相談・LINE登録・概要欄など）
+
+■ NG：1テーマに絞る／具体例を必ず入れる`,
+  title:
+`クリックされるタイトルの5原則：
+①誰向けかがわかる（「初心者向け」「個人起業家向け」など）
+②視聴者の悩みが入っている
+③得られる未来がわかる
+④具体性がある（数字を入れる）
+⑤内容と一致し、誇張しない
+
+そのまま使える型の例：
+・〇〇初心者が最初にやるべきこと
+・〇〇で失敗する人の共通点
+・〇〇がうまくいかない理由
+・〇〇を伸ばすために必要な3つのこと
+・〇〇でやってはいけないNG行動
+・知らないと損する〇〇
+・【強い一言】〜（動画内で実際に話した言葉を使うと刺さる）`,
+  thumb:
+`サムネ文字（コピー）の作り方：
+・一目で読める短い言葉（目安：10〜13文字以内）
+・続きが気になる／得しそうと思わせる
+・タイトルと丸かぶりさせない（補い合う）
+・数字や強い言葉を使う
+・誇張しすぎない（中身とズレない）
+
+あわせて「画像作成メモ」（表情・背景・色・文字の置き方の提案）も出す。`,
+  idea:
+`テーマは「伸びている動画の切り口」×「ターゲットの悩み」×「自分が話せること」の重なりで決める。
+よく使える切り口：初心者向けの始め方／失敗例／やってはいけないこと／成功する人の特徴／最初に決めるべきこと／知らないと損すること／よくある間違い／具体的な手順／比較／チェックリスト。
+・ターゲットの悩みから逆算する（「誰のどんな悩みを解決するか」）。
+・伸びている動画の切り口を、自分のターゲット向けに"変換"する（丸パクリしない）。
+・よくある質問（講座生・見込み客から聞かれること）も良いテーマ。
+出力：テーマ案を10個。各案に【切り口】と【なぜ刺さるか】を一言添える。1テーマ＝1動画に絞れる粒度にする。`,
+  edit:
+`編集の目的：派手にすることではなく、視聴者がストレスなく見られるようにすること（無駄を削る／テンポを整える／重要部分を強調／飽きさせない／理解しやすく）。
+次の4つを「編集メモ」として出す：
+1. テロップ案 … 画面に出す短い文字（重要な一言・キーワード）。どのセリフに当てるかも書く。
+2. カット注意 … 削るべき口癖（えー／あのー／なんか／文頭の「はい」など）。ただし切りすぎ注意、自然さを優先。
+3. ズーム強調ポイント … 結論・名言・キーワード・感情が動く瞬間・場面転換で110%程度ズーム。
+4. Bロール案 … 話の内容に合った補足映像のアイデア（内容と一致させる。無関係な素材はNG）。
+※実際の編集はCapCutなどの無料アプリで行う前提。`,
+  threads:
+`Threads（スレッズ）投稿の作り方：
+・1行目（最初の一文）で必ず引きを作る。タイムラインでは最初の数行しか見えない。問いかけ・断言・意外性・共感のどれか。
+・本音っぽく、カジュアルな口調。完璧な文章より人間味。
+・1投稿1メッセージ。詰め込まない。
+・流れ：引き → 共感／本音 → 気づき・主張 → 最後に軽い問いかけ（コメントが伸びる）。
+・連投（ツリー）の場合：1投稿目で全部のフックを出し切り、2投稿目以降で具体・理由・例、最後にまとめと問いかけ。各投稿を「---」で区切る。
+・ハッシュタグは0〜2個まで（無理に付けない）。煽りすぎ・宣伝くささはNG。`,
+  story:
+`インスタ「ストーリーズ」発信メソッド（メンターの曜日別テンプレート）
+■曜日ごとのテーマとゴール
+・価値観（日）…仕事の価値観/お客様への想い。スクールやサポートの風景を見せる →「この人から学びたい」期待感・透明性・安心感・ファン化
+・お客様の声/ビフォアフ（月）…お客様の声やDMの感想（無ければ自分のビフォーアフター）→信憑性・権威性・「私もできるかも」
+・危機感（火）…危機感の共有から、学び・行動の重要性（エピソード/事例/データが効果的）→「今やる理由」と自己投資の重要性
+・他社比較＝仮想敵（水）…共通の仮想敵をつくる →自社の優位性・自分のポジションを明確化
+・自己投資（木）…自己投資の重要性を、例え話or実体験で →自己投資が当たり前という状態へ
+・有益情報（金・土）…普段リールで話す有益情報をテキストで →「この人は詳しい」先制ポジション・期待値超え
+
+■作り方のルール
+・1枚のストーリーズに無理なく収まる長さにする。
+・冒頭のフックを強めにする（問いかけ・断言・意外性・共感のどれか）。最初の一文で止める。
+・親しみやすい、本音っぽいカジュアルな口調。
+・最後に軽い参加導線（質問・アンケート・「コメントで教えて」など）やCTAを入れてもよい。
+・1日1〜3投稿が目安（1投稿でもOK）。`,
+  week:
+`インスタ「ストーリーズ」1週間分（メンターの曜日別テンプレート）
+日曜：価値観／月曜：お客様の声・ビフォアフ／火曜：危機感／水曜：他社比較（仮想敵）／木曜：自己投資／金曜・土曜：有益情報
+各曜日のゴール（要点）：
+・価値観…仕事の価値観/お客様への想い、スクールやサポートの風景を見せる →期待感・透明性・安心感・ファン化
+・お客様の声/ビフォアフ…お客様の声やDM感想（無ければ自分のBefore→After）→信憑性・権威性
+・危機感…今のままではまずい＋学び・行動・自己投資の重要性
+・他社比較…共通の仮想敵をつくり、自分の優位性とポジションを明確化
+・自己投資…例え話or実体験で、自己投資が当たり前の状態へ
+・有益情報…普段リールで話す有益情報をテキストで →先制ポジション・期待値超え
+作り方：各曜日とも、冒頭フックを強く、1枚に収まる短さ、親しみやすいカジュアルな口調。最後に軽い参加導線（質問・アンケート）やCTAを入れてよい。`,
+  line:
+`LINE公式での「登録→信頼→個別相談→成約」の流れ
+■基本
+・登録者は「お客様になる一歩手前の人」。売り込みより、まず信頼と価値提供。
+・1メッセージは短く読みやすく。友だちに話すような温かいトーン。絵文字は使いすぎない。
+■種類ごとのポイント
+・登録直後のあいさつ…歓迎＋かんたんな自己紹介＋「ここで何が受け取れるか」＋プレゼント案内。安心感が最優先。
+・教育メッセージ…なぜそれが大事か／よくある誤解を正す／視点を変える。価値観をそろえる。
+・価値提供…今日から使えるノウハウを無料で。「無料でここまで？」と思わせる。
+・個別相談の案内…相談で得られる未来を具体的に。押し売りせず「興味があればどうぞ」。日程や限定性は明確に。
+・個別相談トーク台本…ヒアリング（現状・悩み・理想）→課題の言語化→解決策→提案、の流れ。聞く姿勢が中心。
+■NG：いきなり売り込む／長文すぎる／不安を煽りすぎる。`,
+  voice:
+`お客様の声を「投稿用」に整える
+・事実・ニュアンスは絶対に変えない（盛らない・捏造しない）。
+・読みやすく整える：誤字や話し言葉の乱れを直し、適度に改行を入れる。
+・ビフォー（悩んでいた頃）→ アフター（変化）→ ひとこと、の流れが伝わるように。
+・プライバシー配慮：必要なら名前はイニシャルや「Aさん」に。
+・最後に、発信者からの短い一言（感謝や、見ている人へのメッセージ）を添えてもよい。`,
+};
+
+const ROLE = {
+  reel: 'あなたはInstagramリール台本作成のプロです。下のメソッド・型に忠実に、そのまま読み上げられる完成した日本語の台本を作ります。',
+  youtube: 'あなたはYouTube台本作成のプロです。下のメソッドに忠実に、日本語で作ります。',
+  title: 'あなたはYouTubeのタイトルコピーライターです。下のメソッドに沿って、クリックされる日本語のタイトル案を複数作ります。',
+  thumb: 'あなたはYouTubeサムネイルのコピーライターです。下のメソッドに沿って、日本語のサムネ文字案と画像作成メモを作ります。',
+  threads: 'あなたはThreads（スレッズ）投稿作成のプロです。下のメソッドに沿って、そのまま投稿できる日本語のテキストを作ります。',
+  idea: 'あなたはYouTubeのリサーチ・企画のプロです。下のメソッドに沿って、視聴者に刺さる動画テーマ案を日本語で出します。',
+  edit: 'あなたはYouTube動画編集のディレクターです。下のメソッドに沿って、初心者が迷わない編集メモを日本語で作ります。',
+  story: 'あなたはInstagramストーリーズ文章作成のプロです。下のメソッド（メンターの曜日別テンプレート）に沿って、1枚のストーリーズに収まる、冒頭のフックが強い日本語の文章を作ります。',
+  week: 'あなたはInstagramストーリーズ運用のプロです。下のメソッド（メンターの曜日別テンプレート）に沿って、1週間分（日曜〜土曜）のストーリーズ文章を、各曜日のテーマに合わせて1本ずつ、まとめて作ります。',
+  line: 'あなたはLINE公式アカウントでの教育・販売（マーケティング）のプロです。下のメソッドに沿って、登録者を信頼関係から個別相談・成約へつなげる、温かく信頼される日本語の文章を作ります。',
+  voice: 'あなたはSNS発信のプロです。お客様からの生の感想（DMなど）を、事実を変えずに、信頼感が伝わる「お客様の声」の投稿用テキストへ整えます。',
+};
+
+const MODES = {
+  reel:    { label: '📱 リール台本', btn: '✨ 台本を作る',      theme: '② テーマ・ジャンル', show: ['f-theme','f-kata','f-ref','f-len'], len: 'reel' },
+  youtube: { label: '▶️ YouTube台本', btn: '✨ 台本を作る',     theme: '② 動画テーマ',       show: ['f-theme','f-yt','f-ref','f-len'], len: 'youtube' },
+  title:   { label: '🏷️ タイトル案',  btn: '🏷️ タイトル案を出す', show: ['f-rec'] },
+  thumb:   { label: '🖼️ サムネ文字',  btn: '🖼️ サムネ文字を作る', show: ['f-rec'] },
+  threads: { label: '🧵 スレッズ',    btn: '✨ 投稿を作る',       theme: '② テーマ・話題',    show: ['f-theme','f-ref','f-len'], len: 'threads' },
+  story:   { label: '📸 ストーリーズ', btn: '✨ ストーリーズを作る', theme: '② 今日伝えたいこと・話題（空でもOK）', show: ['f-theme','f-youbi','f-story','f-ref','f-len'], len: 'story' },
+  week:    { label: '📅 週間ストーリーズ', btn: '✨ 1週間分まとめて作る', theme: '② 今週のテーマ・話題（空でもOK）', show: ['f-theme','f-story','f-ref'] },
+  line:    { label: '💬 LINE台本',    btn: '✨ LINE文章を作る',    theme: '② 商品・テーマ・今回伝えたいこと（空でもOK）', show: ['f-theme','f-linetype','f-story','f-ref'] },
+  voice:   { label: '🗣️ お客様の声を清書', btn: '✨ 投稿用に整える', show: ['f-rec'], recLabel: '② お客様の生の声（DM・感想をそのまま貼る）' },
+  idea:    { label: '🔎 ネタ出し',    btn: '🔎 ネタを10個出す',   theme: '② ジャンル・方向性（空ならペルソナから提案）', show: ['f-theme','f-ref','f-plat'] },
+  edit:    { label: '✂️ 編集メモ',    btn: '✂️ 編集メモを作る',    show: ['f-rec'] },
+};
+
+const LEN = {
+  reel:    [{key:'30秒',chars:150},{key:'60秒',chars:300},{key:'90秒',chars:450},{key:'120秒',chars:600}],
+  youtube: [{key:'15分',chars:4500},{key:'30分',chars:9000},{key:'60分',chars:18000}],
+  threads: [{key:'1投稿',chars:400},{key:'連投ツリー',chars:1200}],
+  story:   [{key:'1枚',chars:200},{key:'3枚（連投）',chars:600}],
+};
+const LENDEF = { reel: 1, youtube: 0, threads: 0, story: 0 };
+const KMAP = { reel:'リール', youtube:'YouTube台本', title:'タイトル', thumb:'サムネ', threads:'スレッズ', idea:'ネタ出し', edit:'編集メモ', story:'ストーリーズ', week:'週間ストーリーズ', line:'LINE', voice:'お客様の声', analyze:'分析' };
+
+let mode = 'youtube';
+let len = LEN.youtube[LENDEF.youtube];
+let ideaPlat = 'YouTube';
+
+// ===== 種類トグル =====
+$('kind').querySelectorAll('button').forEach(b => {
+  b.onclick = () => {
+    persistKnow(mode);
+    mode = b.dataset.kind;
+    [...$('kind').children].forEach(c => c.classList.toggle('active', c === b));
+    loadKnow();
+    updateMode();
+  };
+});
+
+function buildLengths(set) {
+  const items = LEN[set], def = LENDEF[set];
+  len = items[def];
+  const el = $('lengths'); el.innerHTML = '';
+  items.forEach((it, i) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (i === def ? ' active' : '');
+    b.textContent = it.key;
+    b.onclick = () => { len = it; [...el.children].forEach(c => c.classList.toggle('active', c === b)); };
+    el.appendChild(b);
+  });
+}
+
+function updateMode() {
+  const m = MODES[mode];
+  ['f-theme','f-kata','f-youbi','f-story','f-linetype','f-yt','f-rec','f-ref','f-plat','f-len'].forEach(id => $(id).style.display = m.show.includes(id) ? '' : 'none');
+  if (m.show.includes('f-theme')) $('themeLabel').textContent = m.theme;
+  if (m.show.includes('f-rec')) $('recLabel').textContent = m.recLabel || '② 動画の内容・話したこと';
+  $('gen').textContent = m.btn;
+  if (m.len) buildLengths(m.len);
+}
+
+// ===== ナレッジ（ペルソナ=全体／型・お手本=種類ごと。すべて編集可能） =====
+function loadKnow() {
+  const saved = localStorage.getItem('method_' + mode);
+  $('method').value = (saved === null ? DEFAULT_METHOD[mode] : saved) || '';
+  $('examples').value = localStorage.getItem('ex_' + mode) || '';
+  $('knowKind').textContent = MODES[mode].label;
+}
+function persistKnow(k) {
+  localStorage.setItem('method_' + k, $('method').value);
+  localStorage.setItem('ex_' + k, $('examples').value.trim());
+}
+
+$('persona').value = localStorage.getItem('persona') || '';
+$('saveKnow').onclick = () => {
+  persistKnow(mode);
+  localStorage.setItem('persona', $('persona').value.trim());
+  $('saveKnow').textContent = '✓ 保存しました';
+  setTimeout(() => $('saveKnow').textContent = 'ナレッジを保存', 1600);
+};
+$('resetMethod').onclick = () => {
+  $('method').value = DEFAULT_METHOD[mode];
+  localStorage.setItem('method_' + mode, DEFAULT_METHOD[mode]);
+  $('resetMethod').textContent = '✓ 初期値に戻しました';
+  setTimeout(() => $('resetMethod').textContent = 'この型を初期値（講座メソッド）に戻す', 1600);
+};
+
+// ===== 設定（キー・モデル） =====
+$('apiKey').value = localStorage.getItem('key') || '';
+$('apiVersion').value = localStorage.getItem('apiVersion') || '2023-06-01';
+
+const MODEL_PRESETS = ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
+function loadModelUI() {
+  const saved = localStorage.getItem('model') || 'claude-opus-4-8';
+  if (MODEL_PRESETS.includes(saved)) { $('model').value = saved; $('modelCustom').value = ''; }
+  else { $('model').value = 'custom'; $('modelCustom').value = saved; }
+  toggleModelCustom();
+}
+function toggleModelCustom() {
+  $('modelCustomRow').style.display = $('model').value === 'custom' ? '' : 'none';
+}
+$('model').onchange = toggleModelCustom;
+loadModelUI();
+
+function hasKey() { return !!(localStorage.getItem('key') || '').trim(); }
+function refreshBanner() { $('setupBanner').style.display = hasKey() ? 'none' : 'block'; }
+$('saveKey').onclick = () => {
+  localStorage.setItem('key', $('apiKey').value.trim());
+  const sel = $('model').value;
+  const eff = sel === 'custom' ? $('modelCustom').value.trim() : sel;
+  if (sel === 'custom' && !eff) { showErr('新しいモデル名を入れてください（例：claude-opus-5-0）。'); return; }
+  localStorage.setItem('model', eff || 'claude-opus-4-8');
+  $('saveKey').textContent = '✓ 保存しました';
+  setTimeout(() => $('saveKey').textContent = '保存', 1500);
+  refreshBanner();
+};
+$('saveAdv').onclick = () => {
+  const v = $('apiVersion').value.trim() || '2023-06-01';
+  localStorage.setItem('apiVersion', v);
+  $('apiVersion').value = v;
+  $('saveAdv').textContent = '✓ 保存しました';
+  setTimeout(() => $('saveAdv').textContent = 'この上級設定を保存', 1500);
+};
+
+// ===== プロンプト組み立て =====
+function systemFor() {
+  const method = $('method').value.trim() || DEFAULT_METHOD[mode] || '';
+  const persona = $('persona').value.trim();
+  const ex = $('examples').value.trim();
+  let s = ROLE[mode] + '\n\n【メソッド・型（この通りに作る）】\n' + method;
+  if (mode === 'reel' || mode === 'youtube')
+    s += `\n\n【長さ】約${len.key}（日本語の話し言葉で約${len.chars}字）に収める。長すぎず短すぎず。`;
+  else if (mode === 'threads')
+    s += `\n\n【形式・長さ】${len.key}（日本語で約${len.chars}字を目安）。`;
+  else if (mode === 'story')
+    s += `\n\n【形式・長さ】${len.key}。1枚のストーリーズに無理なく収まる短さ（日本語で約${len.chars}字まで）。冒頭のフックを最優先にする。`;
+  else if (mode === 'week')
+    s += `\n\n【形式】日曜〜土曜の7本を作る。各曜日のストーリーズは1枚に収まる短さ・冒頭フック優先。曜日ごとに「【日曜：価値観】」のような見出しで区切る。`;
+  s += `\n\n【共通ルール】\n- 話し言葉で、視聴者に語りかけるトーンにする。\n- プレースホルダー（〇〇など）は残さず、テーマに合わせて具体的に埋める。\n- 指示された内容だけを出力する（前置き・解説・メタ発言は不要）。`;
+  if (persona) s += `\n\n【発信者・ターゲット（ペルソナ）】\n${persona}`;
+  if (ex) s += `\n\n【お手本（雰囲気・流れ・口調を真似る）】\n${ex}`;
+  return s;
+}
+
+function userFor() {
+  const extra = $('extra').value.trim();
+  const ex = extra ? '【追加の指示】' + extra + '\n' : '';
+  const refV = $('refVideo').value.trim();
+  const refBlock = refV
+    ? `【参考にした伸びてる動画（タイトル/文字起こし等）】\n${refV}\n■この動画が伸びている理由（冒頭フック・構成の流れ・刺さっている悩み）をふまえ、その"切り口"を私のターゲット向けに変換して台本に使うこと。表現・具体例・エピソードは私向けに作り直し、丸パクリにはしないこと。\n`
+    : '';
+  if (mode === 'reel') {
+    const kataLine = (kata && kata !== 'おまかせ') ? `【使う型】今回は必ず「${kata}」の型で作ること。\n` : '';
+    return `【種類】Instagramリール\n【テーマ】${$('theme').value.trim() || '（下の参考動画をもとに、私のターゲット向けに決める）'}\n【長さ】約${len.key}（約${len.chars}字）\n${kataLine}${refBlock}${ex}\nこのテーマで完成した台本を作ってください。`;
+  }
+  if (mode === 'youtube') {
+    const t = $('ytTarget').value.trim(), w = $('ytWorry').value.trim(), e = $('ytEpisode').value.trim();
+    return `【動画テーマ】${$('theme').value.trim() || '（下の参考動画をもとに、私のターゲット向けに決める）'}\n${t ? '【誰に向けて】' + t + '\n' : ''}${w ? '【その人の悩み】' + w + '\n' : ''}${e ? '【入れたい自分のエピソード】' + e + '\n' : ''}【長さ】約${len.key}（約${len.chars}字）\n${refBlock}${ex}\nまずタイトル案を3〜5個、その後7ステップの台本を作ってください。`;
+  }
+  if (mode === 'threads')
+    return `【種類】Threads（スレッズ）\n【テーマ・話題】${$('theme').value.trim() || '（下の参考をもとに、私のターゲット向けに決める）'}\n【形式】${len.key}\n${refBlock}${ex}\nこのテーマで、そのまま投稿できるスレッズの文章を作ってください。`;
+  if (mode === 'story') {
+    const worry = $('stWorry').value.trim(), goal = $('stGoal').value.trim();
+    const youbiLine = (youbi && youbi !== 'おまかせ') ? `【今日のテーマ】「${youbi}」（このテーマのゴールに沿って作る）\n` : '';
+    const shape = len.key.includes('3') ? '3枚の連投にして、各枚を「---」で区切ってください。' : '1枚に収まる長さにしてください。';
+    return `【種類】Instagramストーリーズ\n${youbiLine}${$('theme').value.trim() ? '【今日伝えたいこと・話題】' + $('theme').value.trim() + '\n' : ''}${worry ? '【ターゲットの悩み】' + worry + '\n' : ''}${goal ? '【いちばん伝えたい目的】' + goal + '\n' : ''}${refBlock}${ex}\n冒頭のフックを強めにして、そのまま投稿できるストーリーズの文章を作ってください。${shape}`;
+  }
+  if (mode === 'week') {
+    const worry = $('stWorry').value.trim(), goal = $('stGoal').value.trim();
+    return `【種類】Instagramストーリーズ（1週間分）\n${$('theme').value.trim() ? '【今週のテーマ・話題】' + $('theme').value.trim() + '\n' : ''}${worry ? '【ターゲットの悩み】' + worry + '\n' : ''}${goal ? '【伝えたい目的】' + goal + '\n' : ''}${refBlock}${ex}\n日曜から土曜まで、各曜日のテーマ（日:価値観／月:お客様の声・ビフォアフ／火:危機感／水:他社比較／木:自己投資／金・土:有益情報）に沿って、ストーリーズ文章を1日1本ずつ作ってください。各曜日を「【日曜：価値観】」のように見出しで分け、それぞれ冒頭フックを強めに、1枚に収まる長さにしてください。`;
+  }
+  if (mode === 'line') {
+    const worry = $('stWorry').value.trim(), goal = $('stGoal').value.trim();
+    return `【媒体】LINE公式アカウント\n【作るもの】${linetype}\n${$('theme').value.trim() ? '【商品・テーマ・今回の内容】' + $('theme').value.trim() + '\n' : ''}${worry ? '【ターゲットの悩み】' + worry + '\n' : ''}${goal ? '【目的・ゴール】' + goal + '\n' : ''}${refBlock}${ex}\n上の「${linetype}」として、そのまま送れるLINEの文章を作ってください。温かく、信頼される口調で。`;
+  }
+  if (mode === 'voice') {
+    const content = $('recContent').value.trim(), phrase = $('recPhrase').value.trim();
+    return `【お客様の生の声（DM・感想など）】\n${content}\n${phrase ? '【特に伝えたい部分】' + phrase + '\n' : ''}${ex}\nこの感想を、事実を変えずに、投稿用の「お客様の声」テキストへ整えてください。①短い版（ストーリーズ向け）②標準版（フィード向け）③一言引用版、の3パターンを出してください。`;
+  }
+  if (mode === 'idea') {
+    const ref = $('refVideo').value.trim();
+    const platLabel = ideaPlat === '両方' ? 'リールとYouTubeの両方で使える' : (ideaPlat === 'リール' ? 'Instagramリール（短尺・冒頭フックが命）向けの' : 'YouTube向けの');
+    if (ref)
+      return `【媒体】${ideaPlat}\n【ジャンル・方向性】${$('theme').value.trim() || '（ペルソナに基づく）'}\n【参考にした伸びてる動画（タイトル/文字起こし等）】\n${ref}\n${ex}\n次の2つを出してください。\n\n■【分析】この動画がなぜ伸びているか：(1)冒頭フックの工夫 (2)構成の流れ (3)解決している視聴者の悩み (4)マネできる切り口、を箇条書きで。\n\n■【あなた向けテーマ案10個】上の切り口を私のターゲット向けに"変換"した、${platLabel}テーマを10個。各案に【切り口】と【なぜ刺さるか】を添える。元動画の丸パクリにはしないこと。`;
+    return `【媒体】${ideaPlat}\n【ジャンル・方向性】${$('theme').value.trim() || '（ペルソナに基づいて提案）'}\n${ex}\nこのジャンルで、視聴者に刺さる${platLabel}動画テーマ案を10個、切り口つきで出してください。各案に「なぜ刺さるか」を一言添えてください。`;
+  }
+  if (mode === 'edit') {
+    const content = $('recContent').value.trim(), phrase = $('recPhrase').value.trim();
+    return `【動画の内容・台本】\n${content}\n${phrase ? '【特に強調したい部分】' + phrase + '\n' : ''}${ex}\nこの動画の編集メモ（テロップ案・カット注意・ズーム強調ポイント・Bロール案）を作ってください。`;
+  }
+  const content = $('recContent').value.trim(), phrase = $('recPhrase').value.trim();
+  if (mode === 'title')
+    return `【動画の内容・話したこと】\n${content}\n${phrase ? '【印象的な一言・伝えたい結論】' + phrase + '\n' : ''}${ex}\nこの内容に合った、クリックされるタイトル案を8個出してください。動画内で実際に話した強い言葉があれば優先してください。`;
+  return `【動画の内容・タイトル】\n${content}\n${phrase ? '【一番のウリ・強い一言】' + phrase + '\n' : ''}${ex}\nサムネに大きく載せる短いコピー案を5個と、画像作成メモを出してください。`;
+}
+
+// ===== AI呼び出し（共通・ストリーミング） =====
+let lastMeta = null;
+function setOutput(text, meta) { $('output').classList.remove('muted'); $('output').textContent = text; lastMeta = meta || null; }
+
+async function streamGenerate(sys, user, maxTok, meta, loadingMsg) {
+  const key = (localStorage.getItem('key') || $('apiKey').value).trim();
+  if (!key) {
+    showErr('先にAIキーの登録が必要です（下の⚙️設定）。やり方は「❓ キーの取り方」を見てください。');
+    $('setupDetails').open = true; window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    return false;
+  }
+  showErr('');
+  const model = localStorage.getItem('model') || 'claude-opus-4-8';
+  $('output').classList.remove('muted'); $('output').textContent = loadingMsg || '作成しています…';
+  window.scrollTo({ top: $('output').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': localStorage.getItem('apiVersion') || '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model, max_tokens: maxTok, stream: true, system: sys, messages: [{ role: 'user', content: user }] }),
+    });
+    if (!res.ok) { const data = await res.json().catch(() => ({})); throw new Error(data?.error?.message || `エラー (${res.status})`); }
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '', out = '';
+    $('output').textContent = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        const l = line.trim();
+        if (!l.startsWith('data:')) continue;
+        const payload = l.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        let ev; try { ev = JSON.parse(payload); } catch { continue; }
+        if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') { out += ev.delta.text; $('output').textContent = out; }
+        else if (ev.type === 'error') throw new Error(ev.error?.message || 'エラー');
+      }
+    }
+    setOutput(out.trim() || '(空の応答が返りました)', meta);
+    return true;
+  } catch (e) {
+    $('output').classList.add('muted'); $('output').textContent = 'ここに結果が表示されます。'; lastMeta = null;
+    let msg = e.message;
+    if (/401|authentication/i.test(msg)) msg = 'キーが正しくないようです。⚙️設定で確認してください。';
+    else if (/credit|billing|insufficient/i.test(msg)) msg = '残高（クレジット）が不足しているようです。console.anthropic.com で確認してください。';
+    showErr('失敗しました: ' + msg);
+    return false;
+  }
+}
+
+// ===== 作るボタン =====
+$('gen').onclick = async () => {
+  const themeMode = (mode === 'reel' || mode === 'youtube' || mode === 'threads');
+  const recMode = (mode === 'title' || mode === 'thumb' || mode === 'edit' || mode === 'voice');
+  if (themeMode) {
+    if (!$('theme').value.trim() && !$('refVideo').value.trim()) return showErr('テーマを入れるか、参考にする動画を貼ってください。');
+  } else if (recMode) {
+    if (!$('recContent').value.trim()) return showErr('内容を入れてください。');
+  }
+  let maxTok = 1800;
+  if (mode === 'youtube') maxTok = Math.min(32000, Math.ceil(len.chars * 1.3) + 1000);
+  else if (mode === 'reel') maxTok = 2000;
+  else if (mode === 'threads') maxTok = 2500;
+  else if (mode === 'edit') maxTok = 2500;
+  else if (mode === 'idea') maxTok = 3200;
+  else if (mode === 'story') maxTok = 1500;
+  else if (mode === 'week') maxTok = 4000;
+  else if (mode === 'line') maxTok = 2500;
+  else if (mode === 'voice') maxTok = 2000;
+  const title = recMode ? $('recContent').value.trim().split('\n')[0].slice(0, 40)
+    : ($('theme').value.trim() || (mode === 'story' && youbi !== 'おまかせ' ? youbi : KMAP[mode]));
+  const meta = { kind: mode, theme: title, len: MODES[mode].len ? len.key : '-' };
+  const btn = $('gen'); btn.disabled = true; const orig = btn.textContent;
+  btn.innerHTML = '<span class="spin"></span>作成中…（長いものほど時間がかかります）';
+  await streamGenerate(systemFor(), userFor(), maxTok, meta, '作成しています…');
+  btn.disabled = false; btn.textContent = orig;
+};
+
+// ===== コピー =====
+$('copy').onclick = async () => {
+  const t = $('output').textContent;
+  if (!t || $('output').classList.contains('muted')) return;
+  try { await navigator.clipboard.writeText(t); $('copy').textContent = '✓ コピー'; setTimeout(() => $('copy').textContent = 'コピー', 1200); }
+  catch { showErr('コピーできませんでした。手動で選択してください。'); }
+};
+
+// ===== 保存・履歴 =====
+function loadHist() { try { return JSON.parse(localStorage.getItem('hist') || '[]'); } catch { return []; } }
+function saveHist(l) { localStorage.setItem('hist', JSON.stringify(l.slice(0, 50))); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+function renderHist() {
+  const all = loadHist(); const el = $('history');
+  const q = ($('histSearch') ? $('histSearch').value : '').trim().toLowerCase();
+  const list = q ? all.filter(it => (((it.theme || '') + ' ' + (KMAP[it.kind] || it.kind) + ' ' + (it.text || ''))).toLowerCase().includes(q)) : all;
+  if ($('histLabel')) $('histLabel').textContent = '📚 保存した結果' + (all.length ? '（' + all.length + '件）' : '');
+  if (!all.length) { el.className = 'muted'; el.textContent = 'まだ保存はありません。'; return; }
+  if (!list.length) { el.className = 'muted'; el.textContent = '「' + q + '」に合う保存はありません。'; return; }
+  el.className = ''; el.innerHTML = '';
+  list.forEach(item => {
+    const d = new Date(item.t);
+    const date = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const k = KMAP[item.kind] || item.kind;
+    const row = document.createElement('div'); row.className = 'hist';
+    row.innerHTML = `<div class="ht">
+        <div style="min-width:0">
+          <div class="hmeta">${esc(item.theme || '(無題)')} <span class="pill">${k}${item.len && item.len !== '-' ? '・' + esc(item.len) : ''}</span></div>
+          <div class="hsub">${date}</div>
+        </div>
+        <div class="hacts"><button class="hbtn" data-act="load">開く</button><button class="hbtn" data-act="del">削除</button></div>
+      </div>`;
+    row.querySelector('[data-act=load]').onclick = () => {
+      setOutput(item.text, { kind: item.kind, theme: item.theme, len: item.len });
+      window.scrollTo({ top: $('output').getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+    };
+    row.querySelector('[data-act=del]').onclick = () => { saveHist(loadHist().filter(x => x.id !== item.id)); renderHist(); };
+    el.appendChild(row);
+  });
+}
+
+$('save').onclick = () => {
+  const t = $('output').textContent;
+  if (!t || $('output').classList.contains('muted')) return showErr('保存するものがありません。');
+  showErr('');
+  const list = loadHist();
+  list.unshift({ id: Date.now() + '-' + Math.floor(performance.now()), t: Date.now(), text: t,
+    kind: lastMeta?.kind || mode, theme: lastMeta?.theme || '', len: lastMeta?.len || '' });
+  saveHist(list); renderHist();
+  $('save').textContent = '✓ 保存'; setTimeout(() => $('save').textContent = '保存', 1200);
+};
+
+$('clearHist').onclick = () => {
+  if (!loadHist().length) return;
+  if (confirm('保存したものをすべて削除しますか？')) { localStorage.removeItem('hist'); renderHist(); }
+};
+$('histSearch').oninput = renderHist;
+
+// ===== 再生数の記録＆AI分析 =====
+function loadRec() { try { return JSON.parse(localStorage.getItem('records') || '[]'); } catch { return []; } }
+function saveRec(l) { localStorage.setItem('records', JSON.stringify(l.slice(0, 200))); }
+
+function renderRec() {
+  const list = loadRec().slice().sort((a, b) => (b.views || 0) - (a.views || 0));
+  const el = $('recList');
+  if (!list.length) { el.className = 'muted'; el.textContent = 'まだ記録がありません。'; return; }
+  el.className = ''; el.innerHTML = '';
+  list.forEach(r => {
+    const k = r.kind === 'youtube' ? 'YouTube' : 'リール';
+    const row = document.createElement('div'); row.className = 'hist';
+    row.innerHTML = `<div class="ht">
+        <div style="min-width:0">
+          <div class="hmeta">${esc(r.theme || '(無題)')} <span class="pill">${k}</span></div>
+          <div class="hsub">再生数 ${Number(r.views || 0).toLocaleString()}${r.note ? '・' + esc(r.note) : ''}</div>
+        </div>
+        <div class="hacts"><button class="hbtn" data-act="del">削除</button></div>
+      </div>`;
+    row.querySelector('[data-act=del]').onclick = () => { saveRec(loadRec().filter(x => x.id !== r.id)); renderRec(); };
+    el.appendChild(row);
+  });
+}
+
+$('recAdd').onclick = () => {
+  const theme = $('recTheme').value.trim();
+  const views = parseInt(($('recViews').value || '').replace(/[^0-9]/g, ''), 10);
+  if (!theme) return showErr('テーマ・タイトルを入れてください。');
+  if (isNaN(views)) return showErr('再生数を数字で入れてください。');
+  showErr('');
+  const l = loadRec();
+  l.unshift({ id: Date.now() + '-' + Math.floor(performance.now()), theme, kind: $('recKind').value, views, note: $('recNote').value.trim() });
+  saveRec(l); renderRec();
+  $('recTheme').value = ''; $('recViews').value = ''; $('recNote').value = '';
+  $('recAdd').textContent = '✓ 記録しました'; setTimeout(() => $('recAdd').textContent = '記録する', 1200);
+};
+
+$('recAnalyze').onclick = async () => {
+  const list = loadRec();
+  if (list.length < 2) return showErr('分析するには記録が2件以上あると良いです。');
+  const table = list.map(r => `・[${r.kind === 'youtube' ? 'YouTube' : 'リール'}] ${r.theme}｜再生数 ${r.views}${r.note ? '｜' + r.note : ''}`).join('\n');
+  const persona = $('persona').value.trim();
+  let sys = `あなたはSNS運用のプロのアナリストです。ユーザーが自己申告した投稿の再生数データを分析し、初心者にもわかる日本語で、次の順に具体的に答えます：
+1. 伸びている投稿の共通点（テーマ・型・切り口）
+2. 伸びていない投稿の傾向と、考えられる原因
+3. 次に作るべきテーマ・型の具体的な提案を3つ
+4. ひとことアドバイス
+データに基づいて述べること（推測でも可）。`;
+  if (persona) sys += `\n\n【発信者・ターゲット】\n${persona}`;
+  const user = `【私の投稿データ（再生数）】\n${table}\n\nこのデータを分析してください。`;
+  const btn = $('recAnalyze'); btn.disabled = true; const orig = btn.textContent;
+  btn.innerHTML = '<span class="spin"></span>分析中…';
+  await streamGenerate(sys, user, 3000, { kind: 'analyze', theme: '再生数の分析', len: '-' }, '分析しています…');
+  btn.disabled = false; btn.textContent = orig;
+};
+
+function showErr(m) { $('err').textContent = m; }
+
+// ===== リールの型チップ =====
+const KATA = ['おまかせ', '常識破壊', '危機感の増幅', 'ナンバリング', '対比構造', 'CV型(誘導)'];
+let kata = 'おまかせ';
+KATA.forEach(k => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (k === kata ? ' active' : '');
+  b.textContent = k;
+  b.onclick = () => { kata = k; [...$('katas').children].forEach(c => c.classList.toggle('active', c === b)); };
+  $('katas').appendChild(b);
+});
+
+// ===== ストーリーズの曜日テーマチップ =====
+const YOUBI = ['おまかせ', '価値観', 'お客様の声', '危機感', '他社比較', '自己投資', '有益情報'];
+let youbi = 'おまかせ';
+YOUBI.forEach(y => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (y === youbi ? ' active' : '');
+  b.textContent = y;
+  b.onclick = () => { youbi = y; [...$('youbis').children].forEach(c => c.classList.toggle('active', c === b)); };
+  $('youbis').appendChild(b);
+});
+
+// ===== LINE台本の種類チップ =====
+const LINETYPE = ['登録直後のあいさつ', '教育メッセージ', '価値提供', '個別相談の案内', '個別相談トーク台本'];
+let linetype = '登録直後のあいさつ';
+LINETYPE.forEach(t => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (t === linetype ? ' active' : '');
+  b.textContent = t;
+  b.onclick = () => { linetype = t; [...$('linetypes').children].forEach(c => c.classList.toggle('active', c === b)); };
+  $('linetypes').appendChild(b);
+});
+
+// ===== ネタ出しの媒体チップ =====
+['YouTube', 'リール', '両方'].forEach(p => {
+  const b = document.createElement('button');
+  b.className = 'chip' + (p === ideaPlat ? ' active' : '');
+  b.textContent = p;
+  b.onclick = () => { ideaPlat = p; [...$('plats').children].forEach(c => c.classList.toggle('active', c === b)); };
+  $('plats').appendChild(b);
+});
+
+// ===== バックアップ（設定・データの保存／復元） =====
+$('backupSave').onclick = () => {
+  const data = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); data[k] = localStorage.getItem(k); }
+  const blob = new Blob([JSON.stringify({ _app: '台本ジェネレーター', _v: 1, data }, null, 2)], { type: 'application/json' });
+  const d = new Date();
+  const name = `台本ジェネレーター-バックアップ-${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}.json`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $('backupMsg').textContent = '✓ 保存しました（ダウンロードを確認してください）';
+  setTimeout(() => $('backupMsg').textContent = '', 2500);
+};
+$('backupLoad').onclick = () => $('backupFile').click();
+$('backupFile').onchange = e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const data = parsed && parsed.data ? parsed.data : parsed;
+      if (!data || typeof data !== 'object') throw new Error('中身が読めませんでした');
+      if (!confirm('いまの設定・データを、このファイルの内容で上書きします。よろしいですか？')) return;
+      Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+      alert('復元しました。画面を読み込み直します。');
+      location.reload();
+    } catch (err) {
+      $('backupMsg').textContent = '復元できませんでした：' + err.message;
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
+
+// ===== 起動 =====
+loadKnow();
+updateMode();
+refreshBanner();
+renderHist();
+renderRec();
+</script>
+</body>
+</html>
