@@ -588,6 +588,8 @@ $('resetMethod').onclick = () => {
 
 // ===== 設定（キー・モデル） =====
 $('apiKey').value = localStorage.getItem('key') || '';
+// 打った／貼り付けた時点で自動保存（「保存」ボタンの押し忘れでも消えない）
+$('apiKey').addEventListener('input', () => { localStorage.setItem('key', $('apiKey').value.trim()); });
 $('apiVersion').value = localStorage.getItem('apiVersion') || '2023-06-01';
 
 const MODEL_PRESETS = ['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'];
